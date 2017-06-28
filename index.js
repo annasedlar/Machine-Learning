@@ -1,3 +1,8 @@
+// This is a tutorial followed from : http://karpathy.github.io/neuralnets/
+// I did not write any of the below code
+
+
+
 // every Unit corresponds to a wire in the diagrams
 var Unit = function(value, grad) {
   // value computed in the forward pass
@@ -174,7 +179,6 @@ for(var iter = 0; iter < 400; iter++) {
   }
 }
 // This code prints the following output:
-
 // training accuracy at iteration 0: 0.3333333333333333
 // training accuracy at iteration 25: 0.3333333333333333
 // training accuracy at iteration 50: 0.5
@@ -191,3 +195,73 @@ for(var iter = 0; iter < 400; iter++) {
 // training accuracy at iteration 325: 1
 // training accuracy at iteration 350: 1
 // training accuracy at iteration 375: 1 
+// Note that, again, the backward function in all cases just computes the local derivative with respect to its input and then multiplies on the gradient from the unit above (i.e. chain rule). To fully specify everything lets finally write out the forward and backward flow for our 2-dimensional neuron with some example values:
+
+// create input units
+var a = new Unit(1.0, 0.0);
+var b = new Unit(2.0, 0.0);
+var c = new Unit(-3.0, 0.0);
+var x = new Unit(-1.0, 0.0);
+var y = new Unit(3.0, 0.0);
+
+// create the gates
+var mulg0 = new multiplyGate();
+var mulg1 = new multiplyGate();
+var addg0 = new addGate();
+var addg1 = new addGate();
+var sg0 = new sigmoidGate();
+
+// do the forward pass
+var forwardNeuron = function() {
+  ax = mulg0.forward(a, x); // a*x = -1
+  by = mulg1.forward(b, y); // b*y = 6
+  axpby = addg0.forward(ax, by); // a*x + b*y = 5
+  axpbypc = addg1.forward(axpby, c); // a*x + b*y + c = 2
+  s = sg0.forward(axpbypc); // sig(a*x + b*y + c) = 0.8808
+};
+forwardNeuron();
+
+console.log('circuit output: ' + s.value); // prints 0.8808
+// And now lets compute the gradient: Simply iterate in reverse order and call the backward function! Remember that we stored the pointers to the units when we did the forward pass, so every gate has access to its inputs and also the output unit it previously produced.
+
+s.grad = 1.0;
+sg0.backward(); // writes gradient into axpbypc
+addg1.backward(); // writes gradients into axpby and c
+addg0.backward(); // writes gradients into ax and by
+mulg1.backward(); // writes gradients into b and y
+mulg0.backward(); // writes gradients into a and x
+// Note that the first line sets the gradient at the output (very last unit) to be 1.0 to start off the gradient chain. This can be interpreted as tugging on the last gate with a force of +1. In other words, we are pulling on the entire circuit to induce the forces that will increase the output value. If we did not set this to 1, all gradients would be computed as zero due to the multiplications in the chain rule. Finally, lets make the inputs respond to the computed gradients and check that the function increased:
+
+var step_size = 0.01;
+a.value += step_size * a.grad; // a.grad is -0.105
+b.value += step_size * b.grad; // b.grad is 0.315
+c.value += step_size * c.grad; // c.grad is 0.105
+x.value += step_size * x.grad; // x.grad is 0.105
+y.value += step_size * y.grad; // y.grad is 0.210
+
+forwardNeuron();
+console.log('circuit output after one backprop: ' + s.value); // prints 0.8825
+// Success! 0.8825 is higher than the previous value, 0.8808. Finally, lets verify that we implemented the backpropagation correctly by checking the numerical gradient:
+
+var forwardCircuitFast = function(a,b,c,x,y) { 
+  return 1/(1 + Math.exp( - (a*x + b*y + c))); 
+};
+var a = 1, b = 2, c = -3, x = -1, y = 3;
+var h = 0.0001;
+var a_grad = (forwardCircuitFast(a+h,b,c,x,y) - forwardCircuitFast(a,b,c,x,y))/h;
+var b_grad = (forwardCircuitFast(a,b+h,c,x,y) - forwardCircuitFast(a,b,c,x,y))/h;
+var c_grad = (forwardCircuitFast(a,b,c+h,x,y) - forwardCircuitFast(a,b,c,x,y))/h;
+var x_grad = (forwardCircuitFast(a,b,c,x+h,y) - forwardCircuitFast(a,b,c,x,y))/h;
+var y_grad = (forwardCircuitFast(a,b,c,x,y+h) - forwardCircuitFast(a,b,c,x,y))/h;
+
+var x = a * b + c;
+// given dx, backprop in-one-sweep would be =>
+// da = b * dx;
+// db = a * dx;
+// dc = 1.0 * dx;
+
+
+
+
+
+
